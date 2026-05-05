@@ -1,6 +1,3 @@
-Here's a professional, academic-focused README for your FastAPI backend:
-
-```markdown
 # Fabric Defect Detection Backend - FastAPI Service
 
 **Academic Project | EC498 Major Project | Department of Electronics and Communication Engineering | NITK Surathkal**
@@ -46,6 +43,7 @@ The service is designed to handle image preprocessing, model inference, and resu
 ## 2. System Architecture
 
 ### 2.1 Directory Structure
+
 ```
 
 fabric-defect-backend/
@@ -73,13 +71,13 @@ fabric-defect-backend/
 
 ### 2.2 Architectural Components
 
-| Component | Description |
-|-----------|-------------|
+| Component         | Description                                    |
+| ----------------- | ---------------------------------------------- |
 | FastAPI Framework | Asynchronous web framework for API development |
-| TensorFlow/Keras | Deep learning inference engine |
-| Pydantic Settings | Type-safe environment configuration |
-| ModelManager | Singleton pattern for efficient model loading |
-| API Key Security | Header-based authentication mechanism |
+| TensorFlow/Keras  | Deep learning inference engine                 |
+| Pydantic Settings | Type-safe environment configuration            |
+| ModelManager      | Singleton pattern for efficient model loading  |
+| API Key Security  | Header-based authentication mechanism          |
 
 ---
 
@@ -87,14 +85,14 @@ fabric-defect-backend/
 
 ### 3.1 Technology Stack
 
-| Category | Technology | Version |
-|----------|------------|---------|
-| Web Framework | FastAPI | 0.104+ |
-| ML Framework | TensorFlow | 2.13+ |
-| Image Processing | OpenCV | 4.8+ |
-| Data Validation | Pydantic | 2.4+ |
-| ASGI Server | Uvicorn | 0.24+ |
-| Python | CPython | 3.10+ |
+| Category         | Technology | Version |
+| ---------------- | ---------- | ------- |
+| Web Framework    | FastAPI    | 0.104+  |
+| ML Framework     | TensorFlow | 2.13+   |
+| Image Processing | OpenCV     | 4.8+    |
+| Data Validation  | Pydantic   | 2.4+    |
+| ASGI Server      | Uvicorn    | 0.24+   |
+| Python           | CPython    | 3.10+   |
 
 ### 3.2 Dependencies
 
@@ -110,7 +108,7 @@ python-dotenv==1.0.0
 pydantic-settings==2.0.3
 Pillow==10.0.0
 
-````
+```
 
 ---
 
@@ -130,7 +128,7 @@ Pillow==10.0.0
 ```bash
 git clone https://github.com/your-username/fabric-defect-backend.git
 cd fabric-defect-backend
-````
+```
 
 **Step 2: Create and activate virtual environment**
 
