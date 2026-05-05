@@ -11,10 +11,13 @@ class Settings(BaseSettings):
     API_KEY: str = "mysecret123"
 
     # Model
-    MODEL_PATH: str = "model.keras"
+    MODEL_PATH: str = "model_packed.tflite"
 
     # CORS (UPDATED ONLY THIS PART)
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    ALLOWED_ORIGINS: List[str] = [
+        "https://fabric-detector.vercel.app",
+        "http://localhost:8080",
+    ]
 
     class Config:
         env_file = ".env"
