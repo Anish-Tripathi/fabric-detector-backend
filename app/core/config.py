@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     # Model
     MODEL_PATH: str = "model.keras"
 
-    # CORS — comma-separated origins in .env, e.g. "http://localhost:3000,https://myfrontend.com"
-    ALLOWED_ORIGINS: List[str] = ["*"]
+    # CORS (UPDATED ONLY THIS PART)
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
 
     class Config:
         env_file = ".env"
