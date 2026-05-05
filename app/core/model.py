@@ -7,11 +7,13 @@ logger = logging.getLogger(__name__)
 
 try:
     import tflite_runtime.interpreter as tflite
+
+    TFLITE_RUNTIME = True
 except ImportError:
-    # Fallback for local dev where full tensorflow is installed
     import tensorflow as tf
 
     tflite = tf.lite
+    TFLITE_RUNTIME = False
 
 
 class ModelManager:
@@ -29,7 +31,22 @@ class ModelManager:
                 model_path = model_path.replace(".keras", ".tflite")
 
             logger.info(f"Loading TFLite model from: {model_path}")
-            self._interpreter = tflite.Interpreter(model_path=model_path)
+
+            if TFLITE_RUNTIME:
+                # tflite_runtime needs flex delegate for SELECT_TF_OPS
+                try:
+                    from tflite_runtime.interpreter import load_delegate
+
+                    delegates = [load_delegate("libflexdelegate.so")]
+                    self._interpreter = tflite.Interpreter(
+                        model_path=model_path, experimental_delegates=delegates
+                    )
+                except Exception:
+                    # Fall back without delegate
+                    self._interpreter = tflite.Interpreter(model_path=model_path)
+            else:
+                self._interpreter = tflite.Interpreter(model_path=model_path)
+
             self._interpreter.allocate_tensors()
             self._input_details = self._interpreter.get_input_details()
             self._output_details = self._interpreter.get_output_details()
@@ -43,12 +60,10 @@ class ModelManager:
             self.load_model()
 
         img = self._preprocess(image)
-
         self._interpreter.set_tensor(self._input_details[0]["index"], img)
         self._interpreter.invoke()
         pred = self._interpreter.get_tensor(self._output_details[0]["index"])
 
-        # Model uses softmax with 2 classes: [good_prob, defective_prob]
         if pred.shape[-1] == 2:
             good_prob = float(pred[0][0])
             defective_prob = float(pred[0][1])
@@ -59,7 +74,6 @@ class ModelManager:
                 label = "Good"
                 confidence = good_prob
         else:
-            # Sigmoid single output fallback
             confidence_raw = float(pred[0][0])
             if confidence_raw > 0.5:
                 label = "Defective"
@@ -75,11 +89,10 @@ class ModelManager:
 
     @staticmethod
     def _preprocess(image: Image.Image) -> np.ndarray:
-        image = image.convert("RGB")  # Ensure 3 channels, handles RGBA/grayscale
+        image = image.convert("RGB")
         image = image.resize((224, 224))
         arr = np.array(image, dtype=np.float32) / 255.0
         return np.expand_dims(arr, axis=0)
 
 
-# Single shared instance imported everywhere
 model_manager = ModelManager()
