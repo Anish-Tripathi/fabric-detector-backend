@@ -13,15 +13,13 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: initialize model (no load_model needed for Gemini)
+    # Startup: initialize model
     logger.info("Initializing ML model...")
-    if model_manager.is_loaded():
-        if model_manager._gemini_model:
-            logger.info("Gemini model ready")
-        else:
-            logger.info("Running in mock mode (no Gemini API key)")
+    model_manager.load_model()  # This now exists and won't error
+    if model_manager._gemini_model:
+        logger.info("Gemini model ready")
     else:
-        logger.warning("Model not ready")
+        logger.info("Running in mock mode (no Gemini API key)")
     yield
     # Shutdown
     logger.info("Shutting down...")
@@ -61,6 +59,6 @@ def root():
 def health_check():
     return {
         "status": "ok",
-        "model_loaded": model_manager.is_loaded(),
+        "model_ready": model_manager.is_loaded(),
         "gemini_enabled": model_manager._gemini_model is not None,
     }

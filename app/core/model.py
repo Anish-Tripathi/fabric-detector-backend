@@ -25,8 +25,11 @@ class ModelManager:
         if gemini_api_key:
             try:
                 genai.configure(api_key=gemini_api_key)
-                self._gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-                logger.info("Gemini API configured successfully")
+                # Use gemini-1.5-flash-002 - stable, free, and supports vision
+                self._gemini_model = genai.GenerativeModel("gemini-1.5-flash-002")
+                logger.info(
+                    "Gemini API configured successfully with gemini-1.5-flash-002"
+                )
             except Exception as e:
                 logger.error(f"Failed to configure Gemini: {e}")
                 self._gemini_model = None
@@ -35,8 +38,12 @@ class ModelManager:
             self._gemini_model = None
 
     def is_loaded(self) -> bool:
-        """Check if model is loaded (always True for Gemini)."""
+        """Check if model is available."""
         return True
+
+    def load_model(self):
+        """Compatibility method - does nothing for Gemini."""
+        logger.info("Gemini model ready (no loading required)")
 
     def predict(self, image: Image.Image) -> dict:
         """Analyze fabric image using Gemini LLM."""
