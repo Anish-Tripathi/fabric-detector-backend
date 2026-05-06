@@ -16,7 +16,7 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel("gemini-2.0-flash-lite")
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
     print("Gemini API configured successfully")
 else:
     gemini_model = None
