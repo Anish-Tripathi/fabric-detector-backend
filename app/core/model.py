@@ -26,8 +26,10 @@ class ModelManager:
             try:
                 genai.configure(api_key=gemini_api_key)
                 # Use gemini-2.0-flash - stable, free, and supports vision
-                self._gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-                logger.info("Gemini API configured successfully with gemini-2.0-flash")
+                self._gemini_model = genai.GenerativeModel("gemini-2.0-flash-lite")
+                logger.info(
+                    "Gemini API configured successfully with gemini-2.0-flash-lite "
+                )
             except Exception as e:
                 logger.error(f"Failed to configure Gemini: {e}")
                 self._gemini_model = None
