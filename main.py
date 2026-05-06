@@ -13,10 +13,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: load model
-    logger.info("Loading ML model on startup...")
-    model_manager.load_model()
-    logger.info("Model loaded successfully.")
+    # Startup: initialize model (no load_model needed for Gemini)
+    logger.info("Initializing ML model...")
+    if model_manager.is_loaded():
+        if model_manager._gemini_model:
+            logger.info("Gemini model ready")
+        else:
+            logger.info("Running in mock mode (no Gemini API key)")
+    else:
+        logger.warning("Model not ready")
     yield
     # Shutdown
     logger.info("Shutting down...")
@@ -25,7 +30,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Fabric Defect Detection API powered by TensorFlow",
+    description="Fabric Defect Detection API powered by Google Gemini AI",
     lifespan=lifespan,
 )
 
@@ -48,6 +53,7 @@ def root():
         "message": "Fabric Defect Detection API Running",
         "version": settings.APP_VERSION,
         "docs": "/docs",
+        "model_type": "Gemini AI" if model_manager._gemini_model else "Mock Mode",
     }
 
 
@@ -56,4 +62,5 @@ def health_check():
     return {
         "status": "ok",
         "model_loaded": model_manager.is_loaded(),
+        "gemini_enabled": model_manager._gemini_model is not None,
     }
