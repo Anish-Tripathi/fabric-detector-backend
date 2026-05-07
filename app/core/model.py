@@ -1,14 +1,11 @@
 import numpy as np
 from PIL import Image
-import logging
 from app.core.config import settings
 import os
 import google.generativeai as genai
 from typing import Dict, Any
 import io
 import json
-
-logger = logging.getLogger(__name__)
 
 
 class ModelManager:
@@ -25,14 +22,11 @@ class ModelManager:
         if gemini_api_key:
             try:
                 genai.configure(api_key=gemini_api_key)
-                # Use gemini-2.0-flash - stable, free, and supports vision
+                # Use gemini-2.5-flash - stable, free, and supports vision
                 self._gemini_model = genai.GenerativeModel("gemini-2.5-flash")
-                logger.info("Gemini API configured successfully with gemini-2.5-flash")
-            except Exception as e:
-                logger.error(f"Failed to configure Gemini: {e}")
+            except Exception:
                 self._gemini_model = None
         else:
-            logger.warning("GEMINI_API_KEY not set. Using mock responses.")
             self._gemini_model = None
 
     def is_loaded(self) -> bool:
@@ -41,7 +35,7 @@ class ModelManager:
 
     def load_model(self):
         """Compatibility method - does nothing for Gemini."""
-        logger.info("Gemini model ready (no loading required)")
+        pass
 
     def predict(self, image: Image.Image) -> dict:
         """Analyze fabric image using Gemini LLM."""
@@ -59,34 +53,28 @@ class ModelManager:
         image.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
 
-        # Prepare the prompt
-        prompt = """You are a fabric defect detection expert. Analyze this fabric image and provide a detailed analysis in JSON format exactly as shown below. Be specific about the type of defect if present.
+        # Simplified prompt
+        prompt = """You are a fabric defect detection expert. Analyze this fabric image and classify it according to the following rules:
+
+CLASSIFICATION RULES:
+1. First determine if the fabric is "Good" or "Defective"
+
+2. If Defective, identify ONE of these defect types:
+   - Hole (any opening, tear, or puncture)
+   - Oil Spot (oil, grease, or liquid contamination)
+   - Objects (foreign objects, debris, or particles)
+   - Thread Error (weaving issues, yarn misalignment, thread distortion, fraying)
+
+3. Set confidence score from 0.00 to 1.00 based on how certain you are
 
 Return ONLY valid JSON (no markdown, no other text) in this exact structure:
 {
     "prediction": "Good" or "Defective",
-    "confidence": 0.00 to 1.00,
-    "defect_type": "type of defect or 'None'",
-    "defect_confidence": 0.00 to 1.00,
-    "severity": "None/Low/Medium/High",
-    "quality_score": 0-100,
-    "texture_uniformity": 0-100,
-    "edge_integrity": 0-100,
-    "weave_consistency": 0-100,
-    "color_homogeneity": 0-100,
-    "tension_balance": 0-100,
-    "surface_roughness": 0-100,
-    "defect_density": 0-100,
-    "pattern_regularity": 0-100,
-    "risk_factors": ["factor1", "factor2"],
-    "passed_checks": ["check1", "check2"],
-    "advice": "detailed action advice",
-    "explanation": "detailed explanation of findings"
+    "defect_type": "None" or "Hole" or "Oil Spot" or "Objects" or "Thread Error",
+    "confidence": 0.00 to 1.00
 }
 
-Defect types can be: "Hole", "Stain", "Weaving defect", "Color variation", "Tension mark", "Oil spot", "Scratch", "Fraying", "None"
-
-Provide realistic, data-driven values based on visual analysis of the image."""
+Do not include any additional fields. Return only these three fields in JSON format."""
 
         try:
             # Call Gemini API
@@ -109,11 +97,60 @@ Provide realistic, data-driven values based on visual analysis of the image."""
             # Ensure confidence is rounded
             result["confidence"] = round(result.get("confidence", 0.5), 4)
 
+            # Calculate severity subclass based on confidence
+            result["severity"] = self._calculate_severity_subclass(
+                result["prediction"], result["defect_type"], result["confidence"]
+            )
+
             return result
 
-        except Exception as e:
-            logger.error(f"Gemini analysis error: {e}")
+        except Exception:
             return self._get_mock_analysis(image)
+
+    def _calculate_severity_subclass(
+        self, prediction: str, defect_type: str, confidence: float
+    ) -> str:
+        """Calculate severity subclass based on defect type and confidence score."""
+
+        if prediction == "Good":
+            return "None"
+
+        # Convert confidence to percentage for comparison
+        confidence_pct = confidence * 100
+
+        # Severity mapping for each defect type
+        severity_map = {
+            "Hole": {
+                (0, 25): "Minor Pinhole",
+                (25, 75): "Moderate Tear",
+                (75, 101): "Severe Fabric Hole",
+            },
+            "Oil Spot": {
+                (0, 25): "Light Stain",
+                (25, 75): "Visible Oil Spot",
+                (75, 101): "Heavy Oil Contamination",
+            },
+            "Objects": {
+                (0, 25): "Small Particle",
+                (25, 75): "Surface Contamination",
+                (75, 101): "Embedded Foreign Object",
+            },
+            "Thread Error": {
+                (0, 25): "Slight Yarn Misalignment",
+                (25, 75): "Thread Distortion",
+                (75, 101): "Fraying",
+            },
+        }
+
+        # Get the appropriate severity range for the defect type
+        if defect_type in severity_map:
+            ranges = severity_map[defect_type]
+            for (low, high), severity in ranges.items():
+                if low <= confidence_pct < high:
+                    return severity
+
+        # Default fallback
+        return "Unknown"
 
     def _get_mock_analysis(self, image: Image.Image) -> dict:
         """Generate mock analysis when Gemini is unavailable."""
@@ -125,101 +162,25 @@ Provide realistic, data-driven values based on visual analysis of the image."""
         is_defective = img_hash % 3 == 0  # ~33% defective rate for testing
 
         if is_defective:
-            defect_types = [
-                "Hole",
-                "Weaving defect",
-                "Stain",
-                "Tension mark",
-                "Color variation",
-            ]
+            defect_types = ["Hole", "Oil Spot", "Objects", "Thread Error"]
             defect_type = defect_types[img_hash % len(defect_types)]
-            confidence = round(0.75 + (img_hash % 25) / 100, 4)
-            defect_confidence = round(0.70 + (img_hash % 30) / 100, 4)
-
-            if confidence > 0.88:
-                severity = "High"
-            elif confidence > 0.7:
-                severity = "Medium"
-            else:
-                severity = "Low"
-
-            quality_score = int(30 + (1 - confidence) * 50)
-
-            metrics = {
-                "texture_uniformity": int(20 + (1 - confidence) * 50),
-                "edge_integrity": int(25 + (1 - confidence) * 55),
-                "weave_consistency": int(15 + (1 - confidence) * 45),
-                "color_homogeneity": int(30 + (1 - confidence) * 40),
-                "tension_balance": int(20 + (1 - confidence) * 50),
-                "surface_roughness": int(60 + confidence * 35),
-                "defect_density": int(50 + confidence * 45),
-                "pattern_regularity": int(10 + (1 - confidence) * 40),
-            }
-
-            risk_factors = [
-                f"Detected {defect_type.lower()} with {defect_confidence:.0%} confidence",
-                f"Texture uniformity below threshold ({metrics['texture_uniformity']}/100)",
-                f"Surface roughness elevated ({metrics['surface_roughness']}/100)",
-            ]
-
-            passed_checks = (
-                ["Color distribution within range"]
-                if metrics["color_homogeneity"] > 30
-                else []
-            )
-
-            advice = f"Defect detected: {defect_type}. Recommended actions: Conduct thorough inspection of this batch, check loom settings and yarn quality, flag for rework or rejection."
-            explanation = f"Analysis identified {defect_type} with {defect_confidence:.0%} confidence. Key indicators: texture irregularity ({metrics['texture_uniformity']}/100), weave inconsistency ({metrics['weave_consistency']}/100), and elevated defect density ({metrics['defect_density']}/100)."
-
+            confidence = round(0.60 + (img_hash % 40) / 100, 4)
         else:
             defect_type = "None"
-            confidence = round(0.85 + (img_hash % 15) / 100, 4)
-            defect_confidence = 0.0
-            severity = "None"
-            quality_score = int(70 + confidence * 30)
+            confidence = round(0.80 + (img_hash % 20) / 100, 4)
 
-            metrics = {
-                "texture_uniformity": int(75 + (confidence * 0.5) * 25),
-                "edge_integrity": int(80 + (confidence * 0.3) * 20),
-                "weave_consistency": int(78 + (confidence * 0.4) * 22),
-                "color_homogeneity": int(82 + (confidence * 0.2) * 18),
-                "tension_balance": int(76 + (confidence * 0.5) * 24),
-                "surface_roughness": int(25 - confidence * 15),
-                "defect_density": int(15 - confidence * 10),
-                "pattern_regularity": int(80 + (confidence * 0.3) * 20),
-            }
-
-            risk_factors = []
-            passed_checks = [
-                "Texture uniformity within specification",
-                "No structural defects detected",
-                "Weave pattern consistent",
-                "Edge integrity confirmed",
-            ]
-
-            advice = "No defects detected. Product meets quality standards. Proceed to next QA stage."
-            explanation = f"Fabric sample classified as Good with {confidence:.0%} confidence. All key metrics are within acceptable ranges: texture uniformity ({metrics['texture_uniformity']}/100), weave consistency ({metrics['weave_consistency']}/100), and color homogeneity ({metrics['color_homogeneity']}/100)."
-
-        return {
+        result = {
             "prediction": "Defective" if is_defective else "Good",
-            "confidence": confidence,
             "defect_type": defect_type,
-            "defect_confidence": defect_confidence,
-            "severity": severity,
-            "quality_score": quality_score,
-            "texture_uniformity": metrics["texture_uniformity"],
-            "edge_integrity": metrics["edge_integrity"],
-            "weave_consistency": metrics["weave_consistency"],
-            "color_homogeneity": metrics["color_homogeneity"],
-            "tension_balance": metrics["tension_balance"],
-            "surface_roughness": metrics["surface_roughness"],
-            "defect_density": metrics["defect_density"],
-            "pattern_regularity": metrics["pattern_regularity"],
-            "risk_factors": risk_factors,
-            "passed_checks": passed_checks,
-            "advice": advice,
-            "explanation": explanation,
+            "confidence": confidence,
         }
+
+        # Calculate severity subclass
+        result["severity"] = self._calculate_severity_subclass(
+            result["prediction"], result["defect_type"], result["confidence"]
+        )
+
+        return result
 
 
 # Global singleton instance
